@@ -8,7 +8,31 @@
 
 ## 安装到 Codex
 
-### 方式一：让 Codex 安装
+### 方式一：使用 npx skills（推荐）
+
+全局安装到 Codex：
+
+```bash
+npx --yes skills add gracefullliam/mp-agent-skills \
+  --skill cloud-video-production-client \
+  --agent codex \
+  --global \
+  --yes
+```
+
+也可以使用完整 GitHub URL：
+
+```bash
+npx skills add https://github.com/gracefullliam/mp-agent-skills
+```
+
+不加 `--global` 时安装到当前项目。安装后可检查结果：
+
+```bash
+npx skills list --global --agent codex
+```
+
+### 方式二：让 Codex 安装
 
 在 Codex 中发送：
 
@@ -17,9 +41,7 @@
 https://github.com/gracefullliam/mp-agent-skills/tree/main/cloud-video-production-client
 ```
 
-安装完成后新建一个 Codex 任务，使 Skill 被重新加载。
-
-### 方式二：命令行安装
+### 方式三：使用 Codex 内置安装器
 
 ```bash
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
@@ -32,6 +54,8 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 ```text
 ~/.codex/skills/cloud-video-production-client
 ```
+
+无论使用哪种方式，安装完成后都应新建一个 Codex 任务，使 Skill 被重新加载。
 
 ## 使用
 
