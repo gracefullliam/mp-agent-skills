@@ -1,6 +1,6 @@
 # Cloud Video Production Skills
 
-面向客户后端或服务端 Agent 的 Firefly Cloud 智能成片接入 Skill。
+面向客户后端或服务端 Agent 智能成片接入 Skill。
 
 当前包含：
 
