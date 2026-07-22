@@ -70,15 +70,17 @@ npx --yes skills update cloud-video-production-client --global --yes
 如果之前通过 Codex 内置安装器安装，需要先把旧目录移动为备份，因为内置安装器不会覆盖已存在的目录：
 
 ```bash
+mkdir -p ~/.codex/skill-backups
+
 mv ~/.codex/skills/cloud-video-production-client \
-  ~/.codex/skills/cloud-video-production-client.backup
+  ~/.codex/skill-backups/cloud-video-production-client.backup
 
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo gracefullliam/mp-agent-skills \
   --path cloud-video-production-client
 ```
 
-确认新版可用后再自行处理备份目录。安装或更新完成后，请新建一个 Codex 任务，使 Skill 被重新加载。
+不要把备份保留在 `~/.codex/skills` 中，否则 Codex 仍可能把它识别为一个同名 Skill。确认新版可用后再自行处理备份目录。安装或更新完成后，请新建一个 Codex 任务，使 Skill 被重新加载。
 
 ## 使用
 
