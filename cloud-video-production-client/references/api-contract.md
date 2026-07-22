@@ -19,9 +19,9 @@ Clients must branch on `code`. `message` is diagnostic text and may change.
 
 Use `Content-Type: application/json` for make, Poll, and queryResult. Use `multipart/form-data` with field name `files` for upload; let the HTTP client generate the multipart boundary.
 
-Load the production credential only from `FIREFLY_MVA_PROD_API_KEY` and send its value as `X-API-Key` with `produce` scope on every endpoint. Never fall back to `FIREFLY_MVA_QA_API_KEY`, `API_KEY`, `X_API_KEY`, or another environment credential. `X-Request-ID` is optional and traces one HTTP request; it is not an idempotency key.
+Send `X-API-Key: <server-side-api-key>` with `produce` scope on every endpoint. `X-Request-ID` is optional and traces one HTTP request; it is not an idempotency key.
 
-The service operator issues the production API Key from its credential control plane and transfers the plaintext once through an approved secure channel. Store it as `FIREFLY_MVA_PROD_API_KEY` through a server-side secret manager. The public Cloud API does not provide customer self-registration or plaintext recovery; request a production-only rotation if the credential is lost or exposed.
+The service operator issues the API Key from its credential control plane and transfers the plaintext once through an approved secure channel. Store it in a server-side secret manager. The public Cloud API does not provide customer self-registration or plaintext recovery; request a rotation if the credential is lost or exposed.
 
 ## Endpoint matrix
 
