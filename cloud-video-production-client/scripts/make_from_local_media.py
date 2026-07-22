@@ -27,19 +27,10 @@ import requests
 
 API_PREFIX = "/api/rest/mva/out/cloud"
 TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
-PROFILES = {
-    "cloud-video-production-client": {
-        "environment": "production",
-        "api_key_env": "FIREFLY_MVA_PROD_API_KEY",
-        "fixed_base_url": None,
-        "id_prefix": "prod-local-media",
-    },
-    "cloud-video-production-qa-debugger": {
-        "environment": "qa",
-        "api_key_env": "FIREFLY_MVA_QA_API_KEY",
-        "fixed_base_url": "https://medi-qa.fireflyfusion.cn",
-        "id_prefix": "qa-local-media",
-    },
+PROFILE = {
+    "environment": "production",
+    "api_key_env": "FIREFLY_MVA_PROD_API_KEY",
+    "id_prefix": "prod-local-media",
 }
 
 
@@ -62,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--intent", help="Production intent sent as user_intent; required unless validating only.")
     parser.add_argument(
         "--base-url",
-        help="Environment gateway origin. Required by the production Skill; fixed in the QA Skill.",
+        help="Production gateway HTTPS origin; required.",
     )
     parser.add_argument(
         "--outer-request-id",
@@ -94,19 +85,15 @@ def parse_args() -> argparse.Namespace:
 
 def resolve_profile() -> dict[str, Any]:
     skill_name = Path(__file__).resolve().parents[1].name
-    profile = PROFILES.get(skill_name)
-    if profile is None:
+    if skill_name != "cloud-video-production-client":
         raise WorkflowError(f"unsupported Skill directory: {skill_name}")
-    return profile
+    return PROFILE
 
 
 def resolve_base_url(value: str | None, profile: dict[str, Any]) -> str:
-    fixed = profile["fixed_base_url"]
-    candidate = fixed if value is None else value.rstrip("/")
+    candidate = None if value is None else value.rstrip("/")
     if candidate is None:
         raise WorkflowError("--base-url is required by the production Skill")
-    if fixed is not None and candidate != fixed:
-        raise WorkflowError(f"the QA Skill only permits {fixed}")
     parsed = urlsplit(candidate)
     if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/"):
         raise WorkflowError("--base-url must be an HTTPS origin without a path, query, or fragment")

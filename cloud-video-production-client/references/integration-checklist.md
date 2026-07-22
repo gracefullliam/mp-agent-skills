@@ -4,7 +4,7 @@
 
 - [ ] Confirm the target environment and obtain its `base_url` from the service owner.
 - [ ] Store the production API key with `produce` scope as `FIREFLY_MVA_PROD_API_KEY` in a server-side secret manager.
-- [ ] Do not configure fallback to `FIREFLY_MVA_QA_API_KEY`, `API_KEY`, `X_API_KEY`, or another environment credential.
+- [ ] Do not configure fallback to `API_KEY`, `X_API_KEY`, or another environment credential.
 - [ ] Keep API keys and callback secrets out of browser code, repositories, screenshots, and tickets.
 - [ ] Use only the `/api/rest/mva/out/cloud/*` paths documented by this Skill.
 - [ ] Send flat JSON without a `content` wrapper.

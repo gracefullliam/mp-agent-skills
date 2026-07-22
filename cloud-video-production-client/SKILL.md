@@ -23,7 +23,7 @@ Require these values from the customer's deployment configuration:
 - `api_key`: load the production credential only from `FIREFLY_MVA_PROD_API_KEY`; require `produce` scope.
 - `callback_secret`: required only when verifying Webhook signatures; obtain it through the agreed secure channel.
 
-Send the value of `FIREFLY_MVA_PROD_API_KEY` as `X-API-Key` from a server or secret manager. Never read `FIREFLY_MVA_QA_API_KEY`, a generic `API_KEY`/`X_API_KEY`, or another environment credential as a fallback. Never place the key in browser code or ask the user to paste a real value into chat.
+Send the value of `FIREFLY_MVA_PROD_API_KEY` as `X-API-Key` from a server or secret manager. Never read a generic `API_KEY`/`X_API_KEY` or another environment credential as a fallback. Never place the key in browser code or ask the user to paste a real value into chat.
 The service operator creates the credential from the database-backed credential control plane and delivers it once through an approved secure channel. Customers do not self-register a key through the public Cloud endpoints; later list operations cannot recover the plaintext.
 
 ## Prepare assets

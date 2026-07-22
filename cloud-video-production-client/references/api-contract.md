@@ -19,9 +19,9 @@ Clients must branch on `code`. `message` is diagnostic text and may change.
 
 Use `Content-Type: application/json` for upload init/complete, make, Poll, and queryResult. Use `multipart/form-data` with field name `files` only for the compatibility upload; let the HTTP client generate the multipart boundary.
 
-Send `X-API-Key` from the dedicated `FIREFLY_MVA_PROD_API_KEY` environment variable with `produce` scope on every endpoint. Do not read a generic or QA credential as a fallback. `X-Request-ID` is optional and traces one HTTP request; it is not an idempotency key.
+Send `X-API-Key` from the dedicated `FIREFLY_MVA_PROD_API_KEY` environment variable with `produce` scope on every endpoint. Do not read a generic or another environment credential as a fallback. `X-Request-ID` is optional and traces one HTTP request; it is not an idempotency key.
 
-The service operator issues the production API Key separately from QA and transfers the plaintext once through an approved secure channel. Store it in a local secret manager or environment injection mechanism. The public Cloud API does not provide self-registration or plaintext recovery; request a production-only rotation if the credential is lost or exposed.
+The service operator issues the production API Key and transfers the plaintext once through an approved secure channel. Store it in a local secret manager or environment injection mechanism. The public Cloud API does not provide self-registration or plaintext recovery; request a production-only rotation if the credential is lost or exposed.
 
 ## Endpoint matrix
 
@@ -119,7 +119,7 @@ The response contains control data and short-lived credentials, never media byte
     "upload_id": "43a6df89-c48d-4a71-9a71-95013a4109b5",
     "upload_mode": "cos_sts_multipart",
     "bucket": "customer-media-1250000000",
-    "region": "ap-shanghai",
+    "region": "<cos-region>",
     "object_key": "uploads/direct/0123456789abcdef/20260722/43a6df89-c48d-4a71-9a71-95013a4109b5.mp4",
     "part_size_mb": 16,
     "credentials": {

@@ -217,7 +217,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
-      description: Load only from FIREFLY_MVA_PROD_API_KEY; never fall back to a QA or generic key variable.
+      description: Load only from FIREFLY_MVA_PROD_API_KEY; never fall back to a generic or another environment key variable.
   parameters:
     RequestId:
       name: X-Request-ID

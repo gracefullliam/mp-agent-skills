@@ -150,7 +150,7 @@ uv run --script scripts/make_from_local_media.py \
 - 使用 Webhook 时，提供公网 HTTPS 回调地址，并通过安全渠道取得 Webhook Secret。
 - 能持久化 `outer_request_id`、`conversation_id` 和 `request_id` 的业务服务。
 
-生产 API Key 只从 `FIREFLY_MVA_PROD_API_KEY` 读取，不得回退到 `FIREFLY_MVA_QA_API_KEY`、`API_KEY`、`X_API_KEY` 或其他环境凭据。API Key 和 Webhook Secret 必须存放在客户服务端的环境变量或密钥管理系统中，不得写入提示词、Skill、源码仓库、浏览器代码、截图或日志。
+生产 API Key 只从 `FIREFLY_MVA_PROD_API_KEY` 读取，不得回退到 `API_KEY`、`X_API_KEY` 或其他环境凭据。API Key 和 Webhook Secret 必须存放在客户服务端的环境变量或密钥管理系统中，不得写入提示词、Skill、源码仓库、浏览器代码、截图或日志。
 
 本机或部署环境配置示例：
 
