@@ -1,0 +1,482 @@
+openapi: 3.1.0
+info:
+  title: Firefly Cloud Video Production API
+  version: 1.2.0
+  description: Public unified direct-to-COS local-material upload and asynchronous Cloud template-production contract.
+servers:
+  - url: https://customer-configured-agent-host
+    description: Replace with the environment-specific base URL supplied by the service owner.
+security:
+  - ApiKeyAuth: []
+paths:
+  /api/rest/mva/out/cloud/upload:
+    post:
+      operationId: uploadCloudVideoMaterials
+      summary: Diagnose legacy gateway-proxied multipart upload
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: Upload attempt completed; inspect every item because partial failure is possible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudUploadResponse'
+        '400':
+          description: Empty file or invalid multipart request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File count, size, batch size, or tenant quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: File extension or media Content-Type is unsupported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Object storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Cloud API error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/rest/mva/out/cloud/upload/init:
+    post:
+      operationId: initializeCloudDirectUpload
+      summary: Initialize an object-scoped direct COS upload for any local image or video
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectUploadInitRequest'
+      responses:
+        '200':
+          description: Temporary object-scoped credentials issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectUploadInitResponse'
+        default:
+          description: Cloud API error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/rest/mva/out/cloud/upload/complete:
+    post:
+      operationId: completeCloudDirectUpload
+      summary: Verify and complete a direct COS upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectUploadCompleteRequest'
+      responses:
+        '200':
+          description: COS object verified and upload usage completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DirectUploadCompleteResponse'
+        default:
+          description: Cloud API error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/rest/mva/out/cloud/make:
+    post:
+      operationId: createCloudVideoProduction
+      summary: Create an asynchronous Cloud video-production task
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudProductionRequest'
+      responses:
+        '200':
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '409':
+          description: Idempotent replay or request conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request, callback, or asset validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Cloud API error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/rest/mva/out/cloud/poll:
+    post:
+      operationId: pollCloudVideoProduction
+      summary: Poll task progress and terminal video status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskQueryRequest'
+      responses:
+        '200':
+          description: Running or completed task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '409':
+          description: Task failed or was cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Cloud API error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/rest/mva/out/cloud/queryResult:
+    post:
+      operationId: queryCloudVideoProductionResult
+      summary: Query persisted parent-task state and final material
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskQueryRequest'
+      responses:
+        '200':
+          description: Persisted task state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+        '409':
+          description: Task failed or was cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        default:
+          description: Cloud API error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Load only from FIREFLY_MVA_PROD_API_KEY; never fall back to a QA or generic key variable.
+  parameters:
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional HTTP request trace identifier; not an idempotency key.
+  schemas:
+    CloudUploadResponse:
+      type: object
+      required: [code, data, message, success]
+      properties:
+        code:
+          type: integer
+          const: 200
+        data:
+          type: object
+          additionalProperties: false
+          required: [files]
+          properties:
+            files:
+              type: array
+              items:
+                $ref: '#/components/schemas/CloudUploadFileResult'
+        message:
+          type: string
+        success:
+          type: boolean
+          const: true
+    CloudUploadFileResult:
+      type: object
+      required: [filename, url, type]
+      properties:
+        filename:
+          type: string
+        url:
+          type: [string, 'null']
+          format: uri
+        type:
+          type: string
+          enum: [image, video]
+        size:
+          type: integer
+          minimum: 0
+        content_sha256:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+        error:
+          type: string
+    DirectUploadInitRequest:
+      type: object
+      additionalProperties: false
+      required: [filename, size, content_type, content_sha256]
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        size:
+          type: integer
+          exclusiveMinimum: 0
+        content_type:
+          type: string
+          minLength: 1
+          maxLength: 127
+        content_sha256:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+    DirectUploadCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [upload_id]
+      properties:
+        upload_id:
+          type: string
+          format: uuid
+    TemporaryCosCredentials:
+      type: object
+      additionalProperties: false
+      required: [tmp_secret_id, tmp_secret_key, session_token]
+      properties:
+        tmp_secret_id:
+          type: string
+        tmp_secret_key:
+          type: string
+        session_token:
+          type: string
+    DirectUploadInitResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [upload_id, upload_mode, bucket, region, object_key, part_size_mb, credentials, start_time, expired_time, required_headers, request_id]
+              properties:
+                upload_id:
+                  type: string
+                  format: uuid
+                upload_mode:
+                  type: string
+                  const: cos_sts_multipart
+                bucket:
+                  type: string
+                region:
+                  type: string
+                object_key:
+                  type: string
+                part_size_mb:
+                  type: integer
+                  minimum: 1
+                credentials:
+                  $ref: '#/components/schemas/TemporaryCosCredentials'
+                start_time:
+                  type: integer
+                expired_time:
+                  type: integer
+                required_headers:
+                  type: object
+                  additionalProperties:
+                    type: string
+                request_id:
+                  type: string
+    DirectUploadCompleteResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [upload_id, status, files, request_id]
+              properties:
+                upload_id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  const: completed
+                files:
+                  type: array
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    $ref: '#/components/schemas/CloudUploadFileResult'
+                request_id:
+                  type: string
+    CloudProductionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - assets
+      properties:
+        user_intent:
+          oneOf:
+            - type: string
+              x-truncate-maxLength: 200
+            - $ref: '#/components/schemas/UserIntent'
+        assets:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Asset'
+        outer_request_id:
+          type: string
+        callback_url:
+          type: string
+          format: uri
+        callback_events:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CallbackEvent'
+    UserIntent:
+      type: object
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          x-truncate-maxLength: 200
+        speech_url:
+          type: string
+    Asset:
+      type: object
+      additionalProperties: false
+      required:
+        - asset_type
+        - asset_url
+      properties:
+        asset_id:
+          type: string
+        asset_type:
+          type: string
+          enum: [image, video]
+        asset_url:
+          type: string
+          format: uri
+        content_sha256:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+        duration_sec:
+          type: number
+          minimum: 0
+        width:
+          type: integer
+          exclusiveMinimum: 0
+        height:
+          type: integer
+          exclusiveMinimum: 0
+        metadata:
+          type: object
+          additionalProperties: true
+    TaskQueryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - conversation_id
+      properties:
+        conversation_id:
+          type: string
+          minLength: 1
+    CallbackEvent:
+      type: string
+      enum:
+        - input.validated
+        - intent.completed
+        - highlight.completed
+        - material_analysis.completed
+        - template_match.completed
+        - render.submitted
+        - production.completed
+        - production.failed
+        - production.cancelled
+    BaseResponse:
+      type: object
+      required: [code, data, message, success]
+      properties:
+        code:
+          type: integer
+          example: 200
+        data:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+        success:
+          type: boolean
+    ErrorResponse:
+      type: object
+      required: [code, data, message, success]
+      properties:
+        code:
+          type: integer
+          enum: [400100, 401100, 403100, 404100, 404101, 405100, 409100, 409101, 409102, 409103, 409104, 409105, 413100, 422100, 422101, 429100, 500100, 503100, 503101]
+        data:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+        success:
+          type: boolean
+          const: false
