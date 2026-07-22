@@ -169,6 +169,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
+      description: Load the production credential only from FIREFLY_MVA_PROD_API_KEY; never fall back to a QA or generic key variable.
   parameters:
     RequestId:
       name: X-Request-ID

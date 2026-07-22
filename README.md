@@ -119,12 +119,20 @@ callback_url: https://customer.example.com/webhooks/video-production
 
 ## 客户需要准备
 
-- 具有 `produce` 权限的 `X-API-Key`。
+- 具有 `produce` 权限的生产 `X-API-Key`，通过 `FIREFLY_MVA_PROD_API_KEY` 注入调用进程。
 - 客户服务端可访问的素材 HTTP/HTTPS URL，或可信运行时能够读取且由用户明确选择的本地图片/视频。
 - 使用 Webhook 时，提供公网 HTTPS 回调地址，并通过安全渠道取得 Webhook Secret。
 - 能持久化 `outer_request_id`、`conversation_id` 和 `request_id` 的业务服务。
 
-API Key 和 Webhook Secret 必须存放在客户服务端的环境变量或密钥管理系统中。不得写入提示词、Skill、源码仓库、浏览器代码、截图或日志。
+生产 API Key 只从 `FIREFLY_MVA_PROD_API_KEY` 读取，不得回退到 `FIREFLY_MVA_QA_API_KEY`、`API_KEY`、`X_API_KEY` 或其他环境凭据。API Key 和 Webhook Secret 必须存放在客户服务端的环境变量或密钥管理系统中，不得写入提示词、Skill、源码仓库、浏览器代码、截图或日志。
+
+本机或部署环境配置示例：
+
+```bash
+export FIREFLY_MVA_PROD_API_KEY='<production-produce-key>'
+```
+
+真实值只在本机、CI/CD 或密钥管理器中配置，不要提交到 Git。仓库提供的 `.env.example` 只用于声明变量名。
 
 ## 公共接口边界
 
