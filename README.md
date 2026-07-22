@@ -57,29 +57,6 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 
 无论使用哪种方式，安装完成后都应新建一个 Codex 任务，使 Skill 被重新加载。
 
-## 更新已有安装
-
-如果之前通过 `npx skills` 全局安装，使用以下命令更新到 GitHub 最新版本：
-
-```bash
-npx --yes skills update cloud-video-production-client --global --yes
-```
-
-更新子命令直接接 Skill 名称，不使用 `--skill` 或 `--agent`。如果安装在当前项目而不是全局，将 `--global` 改为 `--project`。
-
-如果之前通过 Codex 内置安装器安装，需要先把旧目录移动为备份，因为内置安装器不会覆盖已存在的目录：
-
-```bash
-mv ~/.codex/skills/cloud-video-production-client \
-  ~/.codex/skills/cloud-video-production-client.backup
-
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo gracefullliam/mp-agent-skills \
-  --path cloud-video-production-client
-```
-
-确认新版可用后再自行处理备份目录。安装或更新完成后，请新建一个 Codex 任务，使 Skill 被重新加载。
-
 ## 使用
 
 安装后可显式触发：
