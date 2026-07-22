@@ -6,6 +6,8 @@
 
 - [`cloud-video-production-client`](./cloud-video-production-client/SKILL.md)：创建异步成片任务、Poll 查询进度与结果、处理幂等重试，以及接收和验证 Webhook。
 
+当前正式稳定版本为 [`v1.0.0`](https://github.com/gracefullliam/mp-agent-skills/releases/tag/v1.0.0)。生产接入必须固定 Release tag，不要把 `main` 当作可复现版本。
+
 ## 安装到 Codex
 
 ### 方式一：使用 npx skills（推荐）
@@ -13,17 +15,20 @@
 全局安装到 Codex：
 
 ```bash
-npx --yes skills add gracefullliam/mp-agent-skills \
+npx --yes skills add \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.0 \
   --skill cloud-video-production-client \
   --agent codex \
   --global \
   --yes
 ```
 
-也可以使用完整 GitHub URL：
+列出仓库可安装的 Skill，不写入本地：
 
 ```bash
-npx skills add https://github.com/gracefullliam/mp-agent-skills
+npx --yes skills add \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.0 \
+  --list
 ```
 
 不加 `--global` 时安装到当前项目。安装后可检查结果：
@@ -38,7 +43,7 @@ npx skills list --global --agent codex
 
 ```text
 请安装这个 Skill：
-https://github.com/gracefullliam/mp-agent-skills/tree/main/cloud-video-production-client
+https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.0/cloud-video-production-client
 ```
 
 ### 方式三：使用 Codex 内置安装器
@@ -46,7 +51,8 @@ https://github.com/gracefullliam/mp-agent-skills/tree/main/cloud-video-productio
 ```bash
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo gracefullliam/mp-agent-skills \
-  --path cloud-video-production-client
+  --path cloud-video-production-client \
+  --ref v1.0.0
 ```
 
 默认安装位置：
@@ -56,6 +62,37 @@ python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github
 ```
 
 无论使用哪种方式，安装完成后都应新建一个 Codex 任务，使 Skill 被重新加载。
+
+## 版本管理、更新与回滚
+
+- `vX.Y.Z` 是不可变正式版本；已发布 tag 不移动、不覆盖。
+- `snapshot-YYYY-MM-DD` 只用于审计和恢复，不作为客户稳定版本。
+- `main` 是仓库维护状态；正式客户始终使用明确的 Release tag。
+
+先检查 `npx skills` 是否记录了该安装：
+
+```bash
+npx --yes skills list --global --agent codex
+```
+
+只有列表中存在该 Skill 时，下面的命令才会更新它所记录的原安装源：
+
+```bash
+npx --yes skills update cloud-video-production-client --global --yes
+```
+
+如果返回 `No installed skills found matching`，说明当前副本不是由 `npx skills` 登记安装，或已不在它的安装记录中。此时不要继续重复 `update`；执行一次上面的固定版本 `skills add` 命令完成安装登记。
+
+`skills update` 不会把一个固定 tag 自动切换到另一个 Release。升级或回滚时，应把安装 URL 中的 tag 明确改为目标版本后重新执行 `skills add`。例如回滚到当前稳定版仍使用：
+
+```bash
+npx --yes skills add \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.0 \
+  --skill cloud-video-production-client \
+  --agent codex \
+  --global \
+  --yes
+```
 
 ## 使用
 
