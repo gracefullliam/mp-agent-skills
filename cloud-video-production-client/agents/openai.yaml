@@ -1,4 +1,0 @@
-interface:
-  display_name: "Cloud Video Production Client"
-  short_description: "Upload local media and run cloud video jobs"
-  default_prompt: "Use $cloud-video-production-client to upload selected local media or use media URLs, then create and track a cloud video production."

@@ -1,118 +1,352 @@
 ---
 name: cloud-video-production-client
-description: Integrate trusted customer servers or local agents with the Firefly Cloud Video Production API. Use when uploading explicitly selected local image/video files, submitting local or URL assets for asynchronous cloud template production, tracking a production by conversation_id, retrieving the final video, handling idempotent retries, receiving signed production webhooks, or diagnosing public API errors from /api/rest/mva/out/cloud endpoints.
+description: Integrate a customer backend or server-side agent with the Firefly Cloud Video Production public API. Use when creating asynchronous productions from image or video URLs, tracking a task by conversation_id, implementing outer_request_id idempotency, receiving signed Webhooks, retrieving the final video, or troubleshooting documented /out/cloud API errors. Do not use for browser-side API calls, direct file uploads, client-side template selection, or video editing.
 ---
 
-# Cloud Video Production Client
+# Firefly Cloud Video Production Client
 
-Integrate with the asynchronous Cloud template-production service. Keep customer credentials outside prompts, source code, logs, and generated documents.
+Integrate a customer backend or server-side agent with the asynchronous Firefly Cloud Video Production API.
 
-## Load references
+Customers provide only accessible media URLs and a creation intent. The service controls material analysis, highlight detection, template matching, assembly, and rendering.
 
-- Read `references/api-contract.md` before constructing or interpreting any API request.
-- Read `references/webhook-contract.md` when `callback_url` is used or a webhook receiver is implemented.
-- Read `references/integration-checklist.md` before integration review, test handoff, or go-live.
-- Use `references/openapi.yaml` when a machine-readable contract, SDK generation, or schema validation is needed.
+## Enforce security requirements
+
+- Call all Cloud public APIs from a trusted customer server. Do not call them directly from browser code, mobile applications, or other untrusted clients.
+- Send `X-API-Key` only from a server-side secret manager. The key must have `produce` permission.
+- Never place an API key or Webhook callback secret in a prompt, source repository, browser bundle, generated document, screenshot, or log.
+- Do not embed media binaries in prompts.
+- Treat signed or private `asset_url` values as sensitive. Use them only for the API request and do not reproduce them in logs, generated documents, or unrelated responses.
+- Treat the API key and Webhook callback secret as separate credentials. Obtain both through the service operator's approved secure delivery channel.
 
 ## Resolve connection settings
 
-Require these values from the customer's deployment configuration:
+Use this documented Base URL unless the service operator provides a different environment URL:
 
-- `base_url`: environment-specific Agent gateway origin; never guess a production URL.
-- `api_key`: server-side credential with `produce` scope.
-- `callback_secret`: required only when verifying Webhook signatures; obtain it through the agreed secure channel.
+```text
+https://api-chn.fireflyfusion.cn
+```
 
-Send `X-API-Key` from a server or secret manager. Never place it in browser code or ask the user to paste a real value into chat.
-The service operator creates the credential from the database-backed credential control plane and delivers it once through an approved secure channel. Customers do not self-register a key through the public Cloud endpoints; later list operations cannot recover the plaintext.
+Use only these public endpoints:
 
-## Prepare assets
+```text
+POST /api/rest/mva/out/cloud/make
+POST /api/rest/mva/out/cloud/poll
+```
 
-Accept either HTTP/HTTPS media URLs or local files that the current trusted runtime is allowed to read.
+The full production-creation URL is:
 
-For each explicitly selected local file:
+```text
+https://api-chn.fireflyfusion.cn/api/rest/mva/out/cloud/make
+```
 
-1. Resolve the path inside the runtime's approved read scope. Do not scan a home directory, expand an unspecified directory recursively, or upload a file the user did not select.
-2. Submit it as multipart field `files` to `POST /api/rest/mva/out/cloud/upload` with the same server-side `X-API-Key`.
-3. Require a non-empty `data.files[]` result for every requested file. Stop before `/make` when any item has `url=null` or a non-empty `error`.
-4. Map `type` to `asset_type`, `url` to `asset_url`, and `content_sha256` to the same-named production field. Generate a stable request-local `asset_id` without exposing the local absolute path.
-5. Merge uploaded descriptors with any caller-provided URL assets, then submit the canonical `assets[]` array to `/make`.
+## Keep identifiers separate
 
-Do not embed local bytes or Base64 in prompts or `/make`. The upload endpoint is not idempotent: an ambiguous upload retry can leave an unused object even though `/make` remains protected by `outer_request_id`.
+- `X-Request-ID` identifies one HTTP request trace. The caller may provide it as a request Header; the service generates one if omitted. It is not an idempotency key.
+- `outer_request_id` identifies one customer business production. The caller provides it in the request Body. Reuse it when retrying the same business operation.
+- `conversation_id` identifies the service-side parent task. The service returns it after task creation. Use it to call Poll; do not use it as a request idempotency key.
+- Webhook `event_id` identifies one generated business event. Retries of the same event reuse the same `event_id`.
 
-If the runtime cannot read the user's device—for example, a browser-only or remote cloud agent given only a local path—ask the user to attach the file through the host product or move it into an accessible workspace. Never pretend the path was uploaded.
+Generate and persist one stable `outer_request_id` before the first submission. Generate a new value only when the customer intentionally starts a new production.
 
-## Select the workflow
+## Create a production
 
-### Create and Poll
+Send a flat JSON Body to:
 
-Use this as the default integration path.
+```http
+POST /api/rest/mva/out/cloud/make
+Content-Type: application/json
+X-API-Key: <server-side-api-key>
+X-Request-ID: customer-trace-001
+```
 
-1. Generate one stable `outer_request_id` for the customer's business operation.
-2. Upload explicitly selected local files and normalize all local/URL inputs into canonical `assets[]`.
-3. Submit `POST /api/rest/mva/out/cloud/make` with canonical fields only.
-4. Persist `conversation_id`, `outer_request_id`, and `request_id` from the response.
-5. Poll `POST /api/rest/mva/out/cloud/poll` every 3–5 seconds.
-6. Stop on `completed`, `failed`, or `cancelled`.
-7. After completion, call `POST /api/rest/mva/out/cloud/queryResult` when the detailed final material or poster is required.
+Example Body:
 
-### Create and Webhook
+```json
+{
+  "user_intent": "生成一条节奏明快的宠物日常短片",
+  "assets": [
+    {
+      "asset_type": "video",
+      "asset_url": "https://cdn.example.com/media/pet-001.mp4"
+    }
+  ],
+  "outer_request_id": "customer-order-20260720-001"
+}
+```
 
-Use this when the customer has a public HTTPS receiver.
+Use only these documented top-level fields:
 
-1. Register the receiver and signing secret before submitting a task.
-2. Include `callback_url`; omit `callback_events` to receive the default terminal events.
-3. Verify the signature against the raw request bytes before parsing JSON.
-4. Deduplicate deliveries by `event_id` or `X-MP-Video-Delivery`.
-5. Return 2xx promptly, then process asynchronously.
-6. Use `queryResult` for reconciliation. Do not run continuous Poll merely because a callback was configured; Poll only for recovery or an explicit user action.
+- `user_intent`
+- `assets`
+- `outer_request_id`
+- `callback_url`
+- `callback_events`
 
-## Enforce request rules
+Do not wrap the Body in `content`, `BaseRequest`, `data`, or another envelope.
 
-- Send flat JSON to make, Poll, and queryResult. Never wrap those bodies in `content`, `BaseRequest`, or another envelope; upload uses multipart instead.
-- Use only documented `assets[]` fields such as `asset_id`, `asset_type`, `asset_url`, and `content_sha256`; do not invent aliases.
-- Do not send `productId`, `userId`, `project_id`, `conversation_id`, `templateCode`, aspect ratio, high-light timestamps, or template candidates on task creation.
-- Treat unknown fields as invalid because the public request models use `extra="forbid"`.
-- Provide HTTP/HTTPS asset URLs that the Agent service can access. Only `/out/cloud/upload` accepts multipart; `/make` accepts JSON references and never file bytes.
-- Treat `user_intent` as optional text or the documented object. Text is trimmed and truncated to 200 Unicode characters.
+### Normalize user_intent
 
-## Handle responses
+- Treat `user_intent` as an optional string.
+- The service removes leading and trailing whitespace.
+- The service keeps at most the first 200 Unicode characters.
 
-Inspect both HTTP status and body `code`. Branch on `code`, not the `message` text.
+### Validate assets
 
-- `200`: request succeeded.
-- Upload `200` can still contain a failed item. Require every `data.files[]` item to have a non-empty `url` before calling `/make`.
-- `409102`: idempotent replay. Adopt the returned existing `conversation_id`; do not create another task.
-- `409103` or `409104`: terminal production failure or cancellation; stop waiting.
-- `429100`: wait for `Retry-After`, then retry with the same `outer_request_id`.
-- For `/make`, handle `503100` or `503101` with bounded exponential backoff and the same `outer_request_id`. Do not apply production idempotency assumptions to upload.
-- `400100`, `401100`, `403100`, `404100`, `413100`, `422100`, `422101`: fix the request, upload type/size, credential, task identifier, callback, or asset; do not blind-retry.
+- Require `assets` to contain at least one item. The maximum number may vary by environment.
+- Permit only `asset_type` and `asset_url` in each item.
+- Do not require or send `asset_id`, `duration_sec`, highlight timestamps, media labels, template information, or other undocumented fields.
+- Require `asset_type` to be `image` or `video` and to match the media type recognizable from the URL and response content.
+- Require `asset_url` to be an HTTP or HTTPS URL reachable from the service Agent environment.
+- Do not use multipart file upload.
 
-Retry network failures and ambiguous submit responses with the same `outer_request_id`. Generate a new `outer_request_id` only for an intentional new production.
+The service validates DNS resolution, network access, HTTP status, response content, and media type before creating a task. If validation returns code `422101`, no `conversation_id` was created and production did not start.
+
+### Configure callbacks
+
+- Treat `callback_url` as optional and require an allowed public HTTPS URL when present.
+- Permit `callback_events` only when `callback_url` is present.
+- If `callback_url` is present and `callback_events` is omitted, subscribe only to `production.completed`, `production.failed`, and `production.cancelled`.
+
+Do not send undocumented fields such as `productId`, `userId`, `conversation_id`, `templateCode`, aspect ratio, highlight timestamps, candidate templates, or client-side template-matching results. The public request model rejects unknown fields.
+
+## Persist the creation response
+
+After a successful request, persist:
+
+- `conversation_id`
+- `request_id`
+- `outer_request_id`
+- task status
+
+Example:
+
+```json
+{
+  "code": 200,
+  "data": {
+    "conversation_id": "43a6df89-c48d-4a71-9a71-95013a4109b5",
+    "status": "queued",
+    "request_id": "customer-trace-001",
+    "outer_request_id": "customer-order-20260720-001"
+  },
+  "message": "successful",
+  "success": true
+}
+```
+
+## Handle idempotent submissions
+
+- `409102`: adopt the returned original `conversation_id` and continue tracking it, even when `success=false`.
+- `409101`: reuse the `callback_url` and `callback_events` from the first request.
+- `409100`: confirm the intended operation. Generate a new ID only when the customer explicitly wants a new production.
+
+After a network failure, timeout, or ambiguous submission response, retry with the same `outer_request_id`. Never create a new `outer_request_id` merely because the first response was not received.
+
+## Use Poll mode
+
+Use Poll when `callback_url` is absent. Send this request every 3–5 seconds:
+
+```http
+POST /api/rest/mva/out/cloud/poll
+Content-Type: application/json
+X-API-Key: <server-side-api-key>
+```
+
+```json
+{
+  "conversation_id": "43a6df89-c48d-4a71-9a71-95013a4109b5"
+}
+```
+
+Read these response fields when present:
+
+- `status`
+- `current_node`
+- `current_node_description`
+- `error_messages`
+- `video_url`
+
+Apply these rules:
+
+- Display `current_node_description` as the user-facing progress message.
+- Use `current_node` only for technical logging and troubleshooting. Do not display it directly to ordinary users.
+- Do not build long-term business logic from `current_node` or `current_node_description`; the service may change node names or configured descriptions.
+- Stop Poll when `status` becomes `completed`, `failed`, or `cancelled`.
+- Treat a non-empty `video_url` as the playable final result.
+- If the task is completed but `video_url` is null or empty, stop regular Poll, do not store it as playable, retain `conversation_id`, and perform controlled reconciliation or service-side investigation.
+
+## Use Webhook mode
+
+Use Webhook when the customer operates a public HTTPS receiver. To subscribe to every currently supported event, provide:
+
+```json
+{
+  "callback_url": "https://customer.example.com/webhooks/video-production",
+  "callback_events": [
+    "input.validated",
+    "intent.completed",
+    "highlight.completed",
+    "material_analysis.completed",
+    "template_match.completed",
+    "render.submitted",
+    "production.completed",
+    "production.failed",
+    "production.cancelled"
+  ]
+}
+```
+
+Do not continuously Poll when Webhook is configured. Use `/poll` only when:
+
+- a callback may have been lost;
+- the persisted state is uncertain;
+- a completed event contains no usable `video_url`;
+- the user explicitly requests a refresh or reconciliation.
+
+## Verify Webhook requests
+
+Verify each delivery before parsing JSON:
+
+1. Read the unmodified raw HTTP request Body as bytes.
+2. Read `X-MP-Video-Timestamp`.
+3. Reject timestamps outside the agreed window; use five minutes unless another window was agreed.
+4. Construct the signed content as `<timestamp>.<raw_request_body>`.
+5. Compute HMAC-SHA256 using the callback secret.
+6. Remove the `sha256=` prefix from `X-MP-Video-Signature`.
+7. Compare the expected and supplied hexadecimal digests using a constant-time comparison.
+8. Parse JSON only after signature verification succeeds.
+9. Require `X-MP-Video-Event` to equal Body `event`.
+10. Require `X-MP-Video-Delivery` to equal Body `event_id`.
+
+Do not parse and reserialize the Body before verification. Changes to whitespace, key order, or Unicode escaping change the signature.
+
+```python
+import hashlib
+import hmac
+import time
+
+
+def verify_webhook(
+    secret: str,
+    timestamp: str,
+    raw_body: bytes,
+    signature: str,
+) -> bool:
+    try:
+        timestamp_value = int(timestamp)
+    except (TypeError, ValueError):
+        return False
+
+    if abs(int(time.time()) - timestamp_value) > 300:
+        return False
+
+    signed_content = timestamp.encode("utf-8") + b"." + raw_body
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        signed_content,
+        hashlib.sha256,
+    ).hexdigest()
+
+    supplied = signature.removeprefix("sha256=")
+    return hmac.compare_digest(expected, supplied)
+```
+
+## Process Webhook events
+
+Branch on Body `event`. Do not branch on `current_node`, `current_node_description`, or translated display text.
+
+Supported intermediate events:
+
+- `input.validated`
+- `intent.completed`
+- `highlight.completed`
+- `material_analysis.completed`
+- `template_match.completed`
+- `render.submitted`
+
+Supported terminal events:
+
+- `production.completed`
+- `production.failed`
+- `production.cancelled`
+
+Intermediate event `data` is currently empty and does not expose internal analysis results. `production.completed` may contain:
+
+```json
+{
+  "data": {
+    "video_url": "https://result.example.com/test/final.mp4"
+  }
+}
+```
+
+`data.video_url` may be a string or null. When `status=completed` but `video_url` is null, treat the task as terminal, stop normal waiting, do not store the result as playable, retain `conversation_id`, and use `/poll` for controlled reconciliation or contact the service operator.
+
+Webhook payloads do not currently expose customer `outer_request_id`, tenant ID, application ID, original asset URLs, media labels, highlight ranges, template codes, candidate rankings, rendering task IDs, or detailed internal error stacks. Use `conversation_id` to reconcile the latest public task state.
+
+## Acknowledge and deduplicate Webhooks
+
+For a valid Webhook:
+
+1. Persist `event_id` and the verified Body reliably.
+2. Deduplicate by `event_id`.
+3. Return a 2xx response promptly.
+4. Perform slower business processing asynchronously.
+
+If the same `event_id` is delivered again, do not repeat business side effects, but still return 2xx. Non-2xx responses, connection failures, and timeouts may trigger delivery retries. A Webhook delivery failure does not change the production task to failed.
+
+## Handle API errors
+
+Inspect both the HTTP status and response Body `code`. Branch on `code`; do not parse `message` text.
+
+| Code | Meaning and action |
+| --- | --- |
+| `400100` | Request validation failed. Fix JSON syntax, field names, required fields, or unknown fields using `data.errors[]`. |
+| `401100` | Authentication failed. Supply or rotate the API key. |
+| `403100` | The credential lacks `produce` permission. |
+| `404100` | Task not found. Verify environment, tenant, and `conversation_id`. |
+| `409100` | `outer_request_id` conflicts with a different production request. |
+| `409101` | Callback configuration differs from the original idempotent request. |
+| `409102` | Idempotent replay. Adopt the returned original task. |
+| `409103` | Production failed. Stop waiting and retain safe identifiers and public error information. |
+| `409104` | Production cancelled. Stop waiting. |
+| `413100` | Too many assets. Reduce the asset list. |
+| `422100` | Invalid callback URL. Use an allowed public HTTPS URL. |
+| `422101` | One or more assets are unavailable. Correct entries identified in `data.errors[]`. |
+| `429100` | Honor `Retry-After` and retry with the same `outer_request_id`. |
+| `500100` | Internal service error. Retry only when the operation remains idempotent. |
+| `503100` | Callback-related service unavailable. Use Poll when appropriate or retry later with the same identifiers. |
+| `503101` | Dependent service unavailable. Use bounded exponential backoff and the same `outer_request_id`. |
+
+Do not blindly retry malformed requests, authentication failures, permission failures, invalid callback configuration, invalid assets, or unknown tasks. For retryable errors, use bounded exponential backoff and preserve all trace identifiers.
 
 ## Preserve traceability
 
-Log safe identifiers only:
+Customer-side technical logs may include only:
 
-- environment and request time with timezone
+- environment
+- request time with timezone
 - `X-Request-ID`
 - `outer_request_id`
 - `conversation_id`
-- HTTP status, body `code`, task `status`, and `current_node`
-- Webhook `event_id`
+- HTTP status
+- response Body `code`
+- task status
+- `current_node`
+- Webhook event and `event_id`
 
-Never log API keys, callback secrets, signed asset query strings, raw credentials, or full customer media content.
-Never log local absolute paths. A basename may still be sensitive; include it only when the customer's logging policy allows it.
+Never log API keys, callback secrets, authorization or credential Headers, Webhook signatures, raw customer media, complete private or signed asset URLs, or internal error stacks not returned by the public API.
 
-## Produce integration artifacts
+## Verify before go-live
 
-When helping a customer implement or review an integration, produce:
-
-- environment and credential placeholders
-- request/response field mapping
-- idempotency and retry policy
-- Poll or Webhook state machine
-- webhook verification and deduplication checklist when applicable
-- error-code handling table
-- smoke-test and launch-readiness checklist
-
-Do not claim production readiness until the customer has passed the checklist in `references/integration-checklist.md`.
+- Confirm the correct production Base URL.
+- Store the API key and callback secret in a server-side secret manager.
+- Verify that no browser or mobile client sends `X-API-Key`.
+- Persist `outer_request_id`, `conversation_id`, and `request_id`.
+- Verify that Poll stops at `completed`, `failed`, and `cancelled`.
+- Treat `409102` as adoption of the original task.
+- Reuse the same `outer_request_id` after a timeout or uncertain submission.
+- Verify that invalid assets fail before task creation.
+- Verify raw-Body signature validation and timestamp rejection.
+- Verify `event_id` deduplication and prompt 2xx acknowledgment.
+- Test one image, one video, mixed media, invalid media, idempotent replay, conflicting replay, unknown task, duplicate Webhook delivery, invalid signature, expired timestamp, and `video_url=null`.
