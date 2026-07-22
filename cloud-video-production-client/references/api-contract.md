@@ -2,7 +2,7 @@
 
 ## Contract summary
 
-All public Cloud endpoints use the customer-configured environment `base_url` and the prefix `/api/rest/mva/out/cloud`. All local images and videos use the same direct-to-COS control flow; task and direct-upload control endpoints accept flat JSON. The legacy compatibility upload accepts multipart form data. Successful responses use:
+All public Cloud endpoints use the fixed production origin `https://mp-video-agent.fireflyfusion.cn` and the prefix `/api/rest/mva/out/cloud`. Do not infer or override the origin. All local images and videos use the same direct-to-COS control flow; task and direct-upload control endpoints accept flat JSON. The legacy compatibility upload accepts multipart form data. Successful responses use:
 
 ```json
 {
@@ -140,7 +140,7 @@ The response contains control data and short-lived credentials, never media byte
 }
 ```
 
-Configure a Tencent COS SDK client with `tmp_secret_id`, `tmp_secret_key`, `session_token`, and `region`. Use one high-level transfer workflow for images and videos; the SDK may choose single PUT or multipart internally according to `part_size_mb`. Upload directly to the exact returned `bucket/object_key` with all `required_headers`. Do not change the object key, reuse the credentials for another object, persist credentials, print them, or fall back to gateway multipart. File bytes travel from the trusted client to COS, not to `<base_url>`.
+Configure a Tencent COS SDK client with `tmp_secret_id`, `tmp_secret_key`, `session_token`, and `region`. Use one high-level transfer workflow for images and videos; the SDK may choose single PUT or multipart internally according to `part_size_mb`. Upload directly to the exact returned `bucket/object_key` with all `required_headers`. Do not change the object key, reuse the credentials for another object, persist credentials, print them, or fall back to gateway multipart. File bytes travel from the trusted client to COS, not to the Agent gateway.
 
 ### Complete
 

@@ -2,7 +2,7 @@
 
 ## Contract setup
 
-- [ ] Confirm the target environment and obtain its `base_url` from the service owner.
+- [ ] Use the Skill's fixed production origin `https://mp-video-agent.fireflyfusion.cn`; do not configure or override `base_url`.
 - [ ] Store the production API key with `produce` scope as `FIREFLY_MVA_PROD_API_KEY` in a server-side secret manager.
 - [ ] Do not configure fallback to `API_KEY`, `X_API_KEY`, or another environment credential.
 - [ ] Keep API keys and callback secrets out of browser code, repositories, screenshots, and tickets.

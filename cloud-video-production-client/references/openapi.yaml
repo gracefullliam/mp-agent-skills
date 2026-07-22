@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Firefly Cloud Video Production API
-  version: 1.0.1
+  version: 1.0.2
   description: Public unified direct-to-COS local-material upload and asynchronous Cloud template-production contract.
 servers:
-  - url: https://customer-configured-agent-host
-    description: Replace with the environment-specific base URL supplied by the service owner.
+  - url: https://mp-video-agent.fireflyfusion.cn
+    description: Fixed production Agent gateway origin.
 security:
   - ApiKeyAuth: []
 paths:

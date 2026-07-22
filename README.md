@@ -6,7 +6,7 @@
 
 - [`cloud-video-production-client`](./cloud-video-production-client/SKILL.md)：上传用户明确选择的本地图片或视频、使用已有素材 URL 创建异步成片任务、查询进度与结果、处理幂等重试，以及接收和验证 Webhook。
 
-当前稳定版本为 `v1.0.1`；该版本为所有本地图片、视频及混合素材提供统一 COS 直传脚本。生产服务端部署 `/upload/init` 和 `/upload/complete` 后再升级客户环境。
+当前稳定版本为 `v1.0.2`；该版本为所有本地图片、视频及混合素材提供统一 COS 直传脚本，并固定使用生产 Agent 网关 `https://mp-video-agent.fireflyfusion.cn`。生产服务端部署 `/upload/init` 和 `/upload/complete` 后再升级客户环境。
 
 - `vX.Y.Z` 是不可变正式版本；已发布 tag 不移动、不覆盖。
 - `snapshot-YYYY-MM-DD` 只用于审计和恢复，不作为客户稳定版本。
@@ -20,7 +20,7 @@
 
 ```bash
 npx --yes skills add \
-  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1 \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.2 \
   --skill cloud-video-production-client \
   --agent codex \
   --global \
@@ -31,7 +31,7 @@ npx --yes skills add \
 
 ```bash
 npx --yes skills add \
-  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1 \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.2 \
   --list
 ```
 
@@ -47,7 +47,7 @@ npx skills list --global --agent codex
 
 ```text
 请安装这个 Skill：
-https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1/cloud-video-production-client
+https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.2/cloud-video-production-client
 ```
 
 ### 方式三：使用 Codex 内置安装器
@@ -56,7 +56,7 @@ https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1/cloud-video-product
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo gracefullliam/mp-agent-skills \
   --path cloud-video-production-client \
-  --ref v1.0.1
+  --ref v1.0.2
 ```
 
 默认安装位置：
@@ -89,7 +89,7 @@ mv ~/.codex/skills/cloud-video-production-client \
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo gracefullliam/mp-agent-skills \
   --path cloud-video-production-client \
-  --ref v1.0.1
+  --ref v1.0.2
 ```
 
 不要把备份保留在 `~/.codex/skills` 中，否则 Codex 仍可能把它识别为一个同名 Skill。确认新版可用后再自行处理备份目录。安装或更新完成后，请新建一个 Codex 任务，使 Skill 被重新加载。
@@ -135,7 +135,6 @@ callback_url: https://customer.example.com/webhooks/video-production
 
 ```bash
 uv run --script scripts/make_from_local_media.py \
-  --base-url https://customer-configured-agent-host \
   --input /workspace/media/cover.jpg \
   --input /workspace/media/pet.mp4 \
   --intent '生成一条节奏明快的宠物日常短片' \
@@ -162,7 +161,7 @@ export FIREFLY_MVA_PROD_API_KEY='<production-produce-key>'
 
 ## 公共接口边界
 
-Skill 只使用环境 `base_url` 下的以下公共接口：
+Skill 固定使用生产网关 `https://mp-video-agent.fireflyfusion.cn` 下的以下公共接口；客户 Agent 无需查找、推断或配置 `base_url`：
 
 ```text
 POST /api/rest/mva/out/cloud/upload

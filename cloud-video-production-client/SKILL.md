@@ -17,9 +17,9 @@ Integrate with the asynchronous Cloud template-production service. Keep customer
 
 ## Resolve connection settings
 
-Require these values from the customer's deployment configuration:
+Use the production connection settings defined by this Skill:
 
-- `base_url`: environment-specific Agent gateway origin; never guess a production URL.
+- `base_url`: fixed to `https://mp-video-agent.fireflyfusion.cn`; do not search for, infer, or override it.
 - `api_key`: load the production credential only from `FIREFLY_MVA_PROD_API_KEY`; require `produce` scope.
 - `callback_secret`: required only when verifying Webhook signatures; obtain it through the agreed secure channel.
 
@@ -45,7 +45,6 @@ For an end-to-end local-media task, run:
 
 ```bash
 uv run --script scripts/make_from_local_media.py \
-  --base-url https://customer-configured-agent-host \
   --input /approved/media/photo.jpg \
   --input /approved/media/clip.mp4 \
   --intent "生成一条节奏明快的短片" \

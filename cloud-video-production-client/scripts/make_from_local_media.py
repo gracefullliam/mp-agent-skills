@@ -19,7 +19,6 @@ from pathlib import Path
 import sys
 import time
 from typing import Any
-from urllib.parse import urlsplit
 import uuid
 
 import requests
@@ -30,6 +29,7 @@ TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
 PROFILE = {
     "environment": "production",
     "api_key_env": "FIREFLY_MVA_PROD_API_KEY",
+    "base_url": "https://mp-video-agent.fireflyfusion.cn",
     "id_prefix": "prod-local-media",
 }
 
@@ -51,10 +51,6 @@ def parse_args() -> argparse.Namespace:
         help="Explicitly selected local image or video; repeat for mixed inputs.",
     )
     parser.add_argument("--intent", help="Production intent sent as user_intent; required unless validating only.")
-    parser.add_argument(
-        "--base-url",
-        help="Production gateway HTTPS origin; required.",
-    )
     parser.add_argument(
         "--outer-request-id",
         help="Stable idempotency identifier. A profile-prefixed value is generated when omitted.",
@@ -88,18 +84,6 @@ def resolve_profile() -> dict[str, Any]:
     if skill_name != "cloud-video-production-client":
         raise WorkflowError(f"unsupported Skill directory: {skill_name}")
     return PROFILE
-
-
-def resolve_base_url(value: str | None, profile: dict[str, Any]) -> str:
-    candidate = None if value is None else value.rstrip("/")
-    if candidate is None:
-        raise WorkflowError("--base-url is required by the production Skill")
-    parsed = urlsplit(candidate)
-    if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/"):
-        raise WorkflowError("--base-url must be an HTTPS origin without a path, query, or fragment")
-    if parsed.query or parsed.fragment or parsed.username or parsed.password:
-        raise WorkflowError("--base-url must not contain credentials, a query, or a fragment")
-    return candidate
 
 
 def resolve_inputs(values: list[str]) -> list[Path]:
@@ -454,7 +438,7 @@ def query_and_download(
 def main() -> int:
     args = parse_args()
     profile = resolve_profile()
-    base_url = resolve_base_url(args.base_url, profile)
+    base_url = profile["base_url"]
     if not 3 <= args.poll_interval <= 5:
         raise WorkflowError("--poll-interval must be between 3 and 5 seconds")
     paths = resolve_inputs(args.inputs)
