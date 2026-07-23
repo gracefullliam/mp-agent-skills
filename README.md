@@ -138,9 +138,10 @@ uv run --script scripts/make_from_local_media.py \
   --input /workspace/media/cover.jpg \
   --input /workspace/media/pet.mp4 \
   --intent '生成一条节奏明快的宠物日常短片' \
-  --output-dir ./outputs \
   --wait
 ```
+
+脚本不会创建 `outputs` 目录、保存状态文件或下载最终视频。使用 `--wait` 时，最后一行 JSON 直接返回 `conversation_id`、`status`、`video_url`、可选 `poster_url` 和 `request_id`；Agent 应把 `video_url` 作为用户可预览或下载的最终结果。
 
 ## 客户需要准备
 

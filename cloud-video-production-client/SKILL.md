@@ -48,11 +48,10 @@ uv run --script scripts/make_from_local_media.py \
   --input /approved/media/photo.jpg \
   --input /approved/media/clip.mp4 \
   --intent "生成一条节奏明快的短片" \
-  --output-dir ./outputs \
   --wait
 ```
 
-The runner reads only `FIREFLY_MVA_PROD_API_KEY`. It writes a credential-free state file before upload, never prints signed URLs or temporary COS credentials, and downloads the final video only when `--wait` is present.
+The runner reads only `FIREFLY_MVA_PROD_API_KEY`. It does not create an `outputs` directory, persist state, or download the final video. With `--wait`, its final JSON line returns `conversation_id`, `status`, `video_url`, optional `poster_url`, and `request_id`; present `video_url` to the requesting user for preview or download. Never print source asset URLs, temporary COS credentials, or signed upload URLs.
 
 If the runtime cannot read the user's device—for example, a browser-only or remote cloud agent given only a local path—ask the user to attach the file through the host product or move it into an accessible workspace. Never pretend the path was uploaded.
 
@@ -115,7 +114,7 @@ Log safe identifiers only:
 - HTTP status, body `code`, task `status`, and `current_node`
 - Webhook `event_id`
 
-Never log API keys, callback secrets, signed asset query strings, raw credentials, or full customer media content.
+Never log API keys, callback secrets, source asset URLs, signed upload URLs, raw credentials, or full customer media content. The final production `video_url` is an intended user-facing result and may be returned to the requesting user.
 Never log local absolute paths. A basename may still be sensitive; include it only when the customer's logging policy allows it.
 
 ## Produce integration artifacts

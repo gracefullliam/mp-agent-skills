@@ -61,7 +61,7 @@
 
 - [ ] Upload one local image through init → COS SDK → complete, submit the returned URL, and reach `completed`.
 - [ ] Upload one local video through init → COS SDK → complete, submit the returned URL, and reach `completed`.
-- [ ] Run the bundled CLI with mixed local image/video inputs and verify it creates a credential-free state file.
+- [ ] Run the bundled CLI with mixed local image/video inputs and verify it writes no local output files and returns a non-empty final `video_url`.
 - [ ] Mix one uploaded local file with one caller-provided URL in the same production.
 - [ ] Reject an unsupported extension, empty file, oversized file, oversized batch, and exhausted tenant quota.
 - [ ] Simulate one init, COS transfer, or complete failure and verify `/make` is not called and gateway multipart is not used as fallback.

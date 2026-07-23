@@ -56,14 +56,9 @@ def parse_args() -> argparse.Namespace:
         help="Stable idempotency identifier. A profile-prefixed value is generated when omitted.",
     )
     parser.add_argument(
-        "--output-dir",
-        default="outputs",
-        help="Directory for the state file and downloaded result (default: ./outputs).",
-    )
-    parser.add_argument(
         "--wait",
         action="store_true",
-        help="Poll to a terminal state, query the final result, and download the video.",
+        help="Poll to a terminal state and return the final video URL without downloading it.",
     )
     parser.add_argument(
         "--poll-interval",
@@ -312,13 +307,6 @@ def upload_item(
     }
 
 
-def write_state(path: Path, state: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
-
-
 def create_task(
     session: requests.Session,
     base_url: str,
@@ -364,8 +352,6 @@ def poll_to_terminal(
     profile: dict[str, Any],
     conversation_id: str,
     interval: float,
-    state_path: Path,
-    state: dict[str, Any],
 ) -> dict[str, Any]:
     last_snapshot: tuple[Any, Any, Any] | None = None
     while True:
@@ -386,8 +372,6 @@ def poll_to_terminal(
                 flush=True,
             )
             last_snapshot = snapshot
-        state.update({"status": snapshot[0], "current_node": snapshot[1], "request_id": trace_id})
-        write_state(state_path, state)
         if snapshot[0] in TERMINAL_STATUSES:
             return data
         if status < 200 or status >= 300 or body.get("code") != 200:
@@ -395,15 +379,14 @@ def poll_to_terminal(
         time.sleep(interval)
 
 
-def query_and_download(
+def query_result_urls(
     session: requests.Session,
     base_url: str,
     api_key: str,
     profile: dict[str, Any],
     conversation_id: str,
     poll_data: dict[str, Any],
-    output_dir: Path,
-) -> tuple[Path, str]:
+) -> dict[str, Any]:
     status, body, trace_id, _ = api_post(
         session,
         base_url,
@@ -419,20 +402,20 @@ def query_and_download(
     video_url = data.get("video_url") or final_result.get("video_url") or poll_data.get("video_url")
     if not isinstance(video_url, str) or not video_url:
         raise WorkflowError("the completed task returned no video_url")
+    poster_url = data.get("poster_url") or final_result.get("poster_url")
+    if not isinstance(poster_url, str) or not poster_url:
+        poster_url = None
     print(
         f"queryResult: request_id={trace_id}, HTTP={status}, code={body.get('code')}",
         flush=True,
     )
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / f"cloud-video-{conversation_id}.mp4"
-    with session.get(video_url, stream=True, timeout=(30, 300)) as response:
-        response.raise_for_status()
-        with output_file.open("wb") as handle:
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    handle.write(chunk)
-    return output_file, trace_id
+    return {
+        "conversation_id": conversation_id,
+        "status": "completed",
+        "video_url": video_url,
+        "poster_url": poster_url,
+        "request_id": trace_id,
+    }
 
 
 def main() -> int:
@@ -460,21 +443,8 @@ def main() -> int:
         raise WorkflowError(f"{profile['api_key_env']} is not configured")
 
     outer_request_id = args.outer_request_id or f"{profile['id_prefix']}-{uuid.uuid4().hex}"
-    output_dir = Path(args.output_dir).expanduser().resolve()
-    state_hash = hashlib.sha256(outer_request_id.encode("utf-8")).hexdigest()[:16]
-    state_path = output_dir / f"cloud-video-state-{state_hash}.json"
-    state: dict[str, Any] = {
-        "environment": profile["environment"],
-        "outer_request_id": outer_request_id,
-        "conversation_id": None,
-        "request_id": None,
-        "status": "uploading",
-        "current_node": None,
-    }
-    write_state(state_path, state)
     print(
-        f"workflow: environment={profile['environment']}, outer_request_id={outer_request_id}, "
-        f"state_file={state_path.name}",
+        f"workflow: environment={profile['environment']}, outer_request_id={outer_request_id}",
         flush=True,
     )
 
@@ -501,17 +471,19 @@ def main() -> int:
         {"user_intent": args.intent, "assets": assets, "outer_request_id": outer_request_id},
     )
     conversation_id = make_data["conversation_id"]
-    state.update(
-        {
-            "conversation_id": conversation_id,
-            "request_id": make_trace_id,
-            "status": make_data.get("status"),
-        }
-    )
-    write_state(state_path, state)
     print(f"task: conversation_id={conversation_id}", flush=True)
     if not args.wait:
-        print("result: task created; rerun the Skill with the persisted conversation_id to track it", flush=True)
+        print(
+            json.dumps(
+                {
+                    "conversation_id": conversation_id,
+                    "status": make_data.get("status"),
+                    "request_id": make_trace_id,
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
         return 0
 
     poll_data = poll_to_terminal(
@@ -521,19 +493,15 @@ def main() -> int:
         profile,
         conversation_id,
         args.poll_interval,
-        state_path,
-        state,
     )
     if poll_data.get("status") != "completed":
         errors = poll_data.get("error_messages") if isinstance(poll_data.get("error_messages"), list) else []
         raise WorkflowError(f"task ended with status={poll_data.get('status')}, errors_count={len(errors)}")
 
-    output_file, query_trace_id = query_and_download(
-        session, base_url, api_key, profile, conversation_id, poll_data, output_dir
+    result = query_result_urls(
+        session, base_url, api_key, profile, conversation_id, poll_data
     )
-    state.update({"status": "completed", "current_node": "completed", "request_id": query_trace_id})
-    write_state(state_path, state)
-    print(f"result: filename={output_file.name}, size={output_file.stat().st_size}", flush=True)
+    print(json.dumps(result, ensure_ascii=False), flush=True)
     return 0
 
 
