@@ -352,7 +352,7 @@ def poll_to_terminal(
     profile: dict[str, Any],
     conversation_id: str,
     interval: float,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], str]:
     last_snapshot: tuple[Any, Any, Any] | None = None
     while True:
         status, body, trace_id, _ = api_post(
@@ -373,49 +373,10 @@ def poll_to_terminal(
             )
             last_snapshot = snapshot
         if snapshot[0] in TERMINAL_STATUSES:
-            return data
+            return data, trace_id
         if status < 200 or status >= 300 or body.get("code") != 200:
             raise WorkflowError(f"/poll failed: HTTP={status}, code={body.get('code')}")
         time.sleep(interval)
-
-
-def query_result_urls(
-    session: requests.Session,
-    base_url: str,
-    api_key: str,
-    profile: dict[str, Any],
-    conversation_id: str,
-    poll_data: dict[str, Any],
-) -> dict[str, Any]:
-    status, body, trace_id, _ = api_post(
-        session,
-        base_url,
-        api_key,
-        profile,
-        "/queryResult",
-        {"conversation_id": conversation_id},
-    )
-    data = require_success("/queryResult", status, body)
-    final_result = data.get("final_video_result")
-    if not isinstance(final_result, dict):
-        final_result = {}
-    video_url = data.get("video_url") or final_result.get("video_url") or poll_data.get("video_url")
-    if not isinstance(video_url, str) or not video_url:
-        raise WorkflowError("the completed task returned no video_url")
-    poster_url = data.get("poster_url") or final_result.get("poster_url")
-    if not isinstance(poster_url, str) or not poster_url:
-        poster_url = None
-    print(
-        f"queryResult: request_id={trace_id}, HTTP={status}, code={body.get('code')}",
-        flush=True,
-    )
-    return {
-        "conversation_id": conversation_id,
-        "status": "completed",
-        "video_url": video_url,
-        "poster_url": poster_url,
-        "request_id": trace_id,
-    }
 
 
 def main() -> int:
@@ -486,7 +447,7 @@ def main() -> int:
         )
         return 0
 
-    poll_data = poll_to_terminal(
+    poll_data, poll_trace_id = poll_to_terminal(
         session,
         base_url,
         api_key,
@@ -498,9 +459,15 @@ def main() -> int:
         errors = poll_data.get("error_messages") if isinstance(poll_data.get("error_messages"), list) else []
         raise WorkflowError(f"task ended with status={poll_data.get('status')}, errors_count={len(errors)}")
 
-    result = query_result_urls(
-        session, base_url, api_key, profile, conversation_id, poll_data
-    )
+    video_url = poll_data.get("video_url")
+    if not isinstance(video_url, str) or not video_url:
+        raise WorkflowError("the completed Poll response returned no video_url")
+    result = {
+        "conversation_id": conversation_id,
+        "status": "completed",
+        "video_url": video_url,
+        "request_id": poll_trace_id,
+    }
     print(json.dumps(result, ensure_ascii=False), flush=True)
     return 0
 

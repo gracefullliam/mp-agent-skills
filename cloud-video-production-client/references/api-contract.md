@@ -17,7 +17,7 @@ Clients must branch on `code`. `message` is diagnostic text and may change.
 
 ## Authentication and common headers
 
-Use `Content-Type: application/json` for upload init/complete, make, Poll, and queryResult. Use `multipart/form-data` with field name `files` only for the compatibility upload; let the HTTP client generate the multipart boundary.
+Use `Content-Type: application/json` for upload init/complete, make, and Poll. Use `multipart/form-data` with field name `files` only for the compatibility upload; let the HTTP client generate the multipart boundary.
 
 Send `X-API-Key` from the dedicated `FIREFLY_MVA_PROD_API_KEY` environment variable with `produce` scope on every endpoint. Do not read a generic or another environment credential as a fallback. `X-Request-ID` is optional and traces one HTTP request; it is not an idempotency key.
 
@@ -32,7 +32,6 @@ The service operator issues the production API Key and transfers the plaintext o
 | POST | `/api/rest/mva/out/cloud/upload/complete` | Verify the COS object and return a make-ready descriptor | Completes upload usage exactly once; creates no production task |
 | POST | `/api/rest/mva/out/cloud/make` | Create an asynchronous Cloud production | Creates a task unless it is an idempotent replay |
 | POST | `/api/rest/mva/out/cloud/poll` | Track progress and actively obtain terminal video status | May refresh downstream render status |
-| POST | `/api/rest/mva/out/cloud/queryResult` | Read persisted parent-task state and final material | No downstream refresh |
 
 ## Diagnose legacy multipart upload
 
@@ -323,48 +322,11 @@ Poll every 3–5 seconds. Stop after a terminal state or when the customer cance
 }
 ```
 
-The current Poll contract returns the final `video_url`. Use `queryResult` for the detailed final material and poster projection.
+The terminal Poll response is the Skill's only result source. Read `video_url` from this response and do not call a separate result-query endpoint. Treat the URL as an opaque field; do not automatically render a preview, open it, or download it.
 
 ### Failed response
 
 Production failure returns HTTP 409 with code `409103`; cancellation returns code `409104`. Both include the task identifier, terminal status, current-node fields, and `error_messages`.
-
-## Query the parent task
-
-### Request
-
-```http
-POST /api/rest/mva/out/cloud/queryResult
-```
-
-```json
-{
-  "conversation_id": "43a6df89-c48d-4a71-9a71-95013a4109b5"
-}
-```
-
-This endpoint reads persisted parent-task state and does not refresh the downstream renderer. It does not aggregate internal node inputs or outputs.
-
-When the parent task is completed, `data` additionally contains:
-
-```json
-{
-  "final_video_result": {
-    "status": "completed",
-    "render_task_id": "<provider-business-id>",
-    "provider_task_id": "<provider-task-id>",
-    "video_url": "https://result.example.com/final.mp4",
-    "poster_url": "https://result.example.com/poster.jpg",
-    "preview_url": "https://result.example.com/final.mp4",
-    "error_message": "",
-    "provider": "foreign_cloud_edit"
-  },
-  "video_url": "https://result.example.com/final.mp4",
-  "poster_url": "https://result.example.com/poster.jpg"
-}
-```
-
-`poster_url` may be empty when the renderer does not return a poster.
 
 ## Error codes
 

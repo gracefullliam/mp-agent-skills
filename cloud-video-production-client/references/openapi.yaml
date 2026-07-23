@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Firefly Cloud Video Production API
-  version: 1.0.1
+  version: 1.0.2
   description: Public unified direct-to-COS local-material upload and asynchronous Cloud template-production contract.
 servers:
   - url: https://mp-video-agent.fireflyfusion.cn
@@ -166,35 +166,6 @@ paths:
       responses:
         '200':
           description: Running or completed task
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BaseResponse'
-        '409':
-          description: Task failed or was cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        default:
-          description: Cloud API error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/rest/mva/out/cloud/queryResult:
-    post:
-      operationId: queryCloudVideoProductionResult
-      summary: Query persisted parent-task state and final material
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TaskQueryRequest'
-      responses:
-        '200':
-          description: Persisted task state
           content:
             application/json:
               schema:

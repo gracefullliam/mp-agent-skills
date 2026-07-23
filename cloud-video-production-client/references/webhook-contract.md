@@ -50,7 +50,7 @@ X-MP-Video-Signature: sha256=<hex-digest>
 }
 ```
 
-`current_node` is the stable machine-readable progress key. `current_node_description` is the corresponding Chinese progress copy and uses the same mapping as Poll/queryResult. Intermediate event `data` is currently empty. `production.completed` exposes only `video_url` in `data`; it does not expose `poster_url`.
+`current_node` is the stable machine-readable progress key. `current_node_description` is the corresponding Chinese progress copy and uses the same mapping as Poll. Intermediate event `data` is currently empty. `production.completed` exposes only `video_url` in `data`.
 
 ## Signature verification
 
@@ -80,7 +80,7 @@ Never reserialize JSON before signature verification because whitespace and key 
 - Non-2xx responses, timeouts, and network errors are retried with bounded exponential backoff.
 - Assume duplicate delivery and make processing idempotent.
 - Do not assume events from separate tasks arrive in global order.
-- Treat Webhook as notification. Use `queryResult` for reconciliation when local state is missing or ambiguous.
+- Treat Webhook as notification. Use Poll for reconciliation when local state is missing or ambiguous.
 - A callback delivery failure does not change the Cloud production task result.
 
 ## Receiver checklist

@@ -33,7 +33,8 @@
 - [ ] Display `current_node_description`; do not expose internal node keys as customer copy.
 - [ ] Poll every 3–5 seconds only when Poll mode is selected.
 - [ ] Stop Poll on all terminal states.
-- [ ] Call `queryResult` for final material reconciliation or poster retrieval.
+- [ ] Read the final `video_url` from the terminal Poll response and do not call a separate result-query endpoint.
+- [ ] Return `video_url` as an opaque field; do not automatically render, open, or download it.
 - [ ] Treat `409102` as an accepted existing task, despite `success=false`.
 
 ## Retry and recovery
@@ -55,7 +56,7 @@
 - [ ] Deduplicate `event_id` using durable storage.
 - [ ] Return 2xx after durable acceptance and process asynchronously.
 - [ ] Tolerate duplicates and out-of-order delivery.
-- [ ] Use `queryResult` for reconciliation rather than continuous Poll.
+- [ ] Use Poll for one-off reconciliation rather than continuous Poll.
 
 ## Smoke tests
 

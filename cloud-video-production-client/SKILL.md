@@ -1,6 +1,6 @@
 ---
 name: cloud-video-production-client
-description: Integrate trusted customer servers or local agents with the Firefly Cloud Video Production API. Use when uploading explicitly selected local image/video files, submitting local or URL assets for asynchronous cloud template production, tracking a production by conversation_id, retrieving the final video, handling idempotent retries, receiving signed production webhooks, or diagnosing public API errors from /api/rest/mva/out/cloud endpoints.
+description: Integrate trusted customer servers or local agents with the Firefly Cloud Video Production API. Use when uploading explicitly selected local image/video files, submitting local or URL assets for asynchronous cloud template production, polling a production by conversation_id through its final video result, handling idempotent retries, receiving signed production webhooks, or diagnosing public API errors from /api/rest/mva/out/cloud endpoints.
 ---
 
 # Cloud Video Production Client
@@ -51,7 +51,7 @@ uv run --script scripts/make_from_local_media.py \
   --wait
 ```
 
-The runner reads only `FIREFLY_MVA_PROD_API_KEY`. It does not create an `outputs` directory, persist state, or download the final video. With `--wait`, its final JSON line returns `conversation_id`, `status`, `video_url`, optional `poster_url`, and `request_id`; present `video_url` to the requesting user for preview or download. Never print source asset URLs, temporary COS credentials, or signed upload URLs.
+The runner reads only `FIREFLY_MVA_PROD_API_KEY`. It does not create an `outputs` directory, persist state, download the final video, or render a preview. With `--wait`, its final JSON line returns only `conversation_id`, `status`, `video_url`, and `request_id`. Return `video_url` as an opaque result field; do not open it, embed it as an inline preview, or download it unless the user explicitly asks for a separate operation. Never print source asset URLs, temporary COS credentials, or signed upload URLs.
 
 If the runtime cannot read the user's device—for example, a browser-only or remote cloud agent given only a local path—ask the user to attach the file through the host product or move it into an accessible workspace. Never pretend the path was uploaded.
 
@@ -67,7 +67,7 @@ Use this as the default integration path.
 4. Persist `conversation_id`, `outer_request_id`, and `request_id` from the response.
 5. Poll `POST /api/rest/mva/out/cloud/poll` every 3–5 seconds.
 6. Stop on `completed`, `failed`, or `cancelled`.
-7. After completion, call `POST /api/rest/mva/out/cloud/queryResult` when the detailed final material or poster is required.
+7. Read the final `video_url` from the terminal Poll response. Do not call an additional result endpoint.
 
 ### Create and Webhook
 
@@ -78,11 +78,11 @@ Use this when the customer has a public HTTPS receiver.
 3. Verify the signature against the raw request bytes before parsing JSON.
 4. Deduplicate deliveries by `event_id` or `X-MP-Video-Delivery`.
 5. Return 2xx promptly, then process asynchronously.
-6. Use `queryResult` for reconciliation. Do not run continuous Poll merely because a callback was configured; Poll only for recovery or an explicit user action.
+6. Use Poll for reconciliation when callback state is missing or ambiguous. Do not run continuous Poll merely because a callback was configured; Poll only for recovery or an explicit user action.
 
 ## Enforce request rules
 
-- Send flat JSON to upload init/complete, make, Poll, and queryResult. Never wrap those bodies in `content`, `BaseRequest`, or another envelope.
+- Send flat JSON to upload init/complete, make, and Poll. Never wrap those bodies in `content`, `BaseRequest`, or another envelope.
 - Use only documented `assets[]` fields such as `asset_id`, `asset_type`, `asset_url`, and `content_sha256`; do not invent aliases.
 - Do not send `productId`, `userId`, `project_id`, `conversation_id`, `templateCode`, aspect ratio, high-light timestamps, or template candidates on task creation.
 - Treat unknown fields as invalid because the public request models use `extra="forbid"`.
@@ -114,7 +114,7 @@ Log safe identifiers only:
 - HTTP status, body `code`, task `status`, and `current_node`
 - Webhook `event_id`
 
-Never log API keys, callback secrets, source asset URLs, signed upload URLs, raw credentials, or full customer media content. The final production `video_url` is an intended user-facing result and may be returned to the requesting user.
+Never log API keys, callback secrets, source asset URLs, signed upload URLs, raw credentials, or full customer media content. The final production `video_url` may be returned as a result field, but do not automatically render, open, or download it.
 Never log local absolute paths. A basename may still be sensitive; include it only when the customer's logging policy allows it.
 
 ## Produce integration artifacts

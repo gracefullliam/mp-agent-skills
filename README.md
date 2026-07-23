@@ -4,9 +4,9 @@
 
 当前包含：
 
-- [`cloud-video-production-client`](./cloud-video-production-client/SKILL.md)：上传用户明确选择的本地图片或视频、使用已有素材 URL 创建异步成片任务、查询进度与结果、处理幂等重试，以及接收和验证 Webhook。
+- [`cloud-video-production-client`](./cloud-video-production-client/SKILL.md)：上传用户明确选择的本地图片或视频、使用已有素材 URL 创建异步成片任务、通过 Poll 查询进度与最终结果、处理幂等重试，以及接收和验证 Webhook。
 
-当前稳定版本为 `v1.0.1`；该版本为所有本地图片、视频及混合素材提供统一 COS 直传脚本，并固定使用生产 Agent 网关 `https://mp-video-agent.fireflyfusion.cn`。生产服务端部署 `/upload/init` 和 `/upload/complete` 后再升级客户环境。
+当前稳定版本为 `v1.0.2`；该版本为所有本地图片、视频及混合素材提供统一 COS 直传脚本，固定使用生产 Agent 网关 `https://mp-video-agent.fireflyfusion.cn`，并只通过 Poll 获取进度和最终 `video_url`。
 
 - `vX.Y.Z` 是不可变正式版本；已发布 tag 不移动、不覆盖。
 - `snapshot-YYYY-MM-DD` 只用于审计和恢复，不作为客户稳定版本。
@@ -20,7 +20,7 @@
 
 ```bash
 npx --yes skills add \
-  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1 \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.2 \
   --skill cloud-video-production-client \
   --agent codex \
   --global \
@@ -31,7 +31,7 @@ npx --yes skills add \
 
 ```bash
 npx --yes skills add \
-  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1 \
+  https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.2 \
   --list
 ```
 
@@ -47,7 +47,7 @@ npx skills list --global --agent codex
 
 ```text
 请安装这个 Skill：
-https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1/cloud-video-production-client
+https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.2/cloud-video-production-client
 ```
 
 ### 方式三：使用 Codex 内置安装器
@@ -56,7 +56,7 @@ https://github.com/gracefullliam/mp-agent-skills/tree/v1.0.1/cloud-video-product
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo gracefullliam/mp-agent-skills \
   --path cloud-video-production-client \
-  --ref v1.0.1
+  --ref v1.0.2
 ```
 
 默认安装位置：
@@ -89,7 +89,7 @@ mv ~/.codex/skills/cloud-video-production-client \
 python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
   --repo gracefullliam/mp-agent-skills \
   --path cloud-video-production-client \
-  --ref v1.0.1
+  --ref v1.0.2
 ```
 
 不要把备份保留在 `~/.codex/skills` 中，否则 Codex 仍可能把它识别为一个同名 Skill。确认新版可用后再自行处理备份目录。安装或更新完成后，请新建一个 Codex 任务，使 Skill 被重新加载。
@@ -141,7 +141,7 @@ uv run --script scripts/make_from_local_media.py \
   --wait
 ```
 
-脚本不会创建 `outputs` 目录、保存状态文件或下载最终视频。使用 `--wait` 时，最后一行 JSON 直接返回 `conversation_id`、`status`、`video_url`、可选 `poster_url` 和 `request_id`；Agent 应把 `video_url` 作为用户可预览或下载的最终结果。
+脚本不会创建 `outputs` 目录、保存状态文件、下载最终视频或渲染预览。使用 `--wait` 时，最后一行 JSON 只返回 `conversation_id`、`status`、`video_url` 和 `request_id`。Agent 将 `video_url` 作为普通结果字段返回，不自动打开、内嵌预览或下载。
 
 ## 客户需要准备
 
@@ -170,7 +170,6 @@ POST /api/rest/mva/out/cloud/upload/init
 POST /api/rest/mva/out/cloud/upload/complete
 POST /api/rest/mva/out/cloud/make
 POST /api/rest/mva/out/cloud/poll
-POST /api/rest/mva/out/cloud/queryResult
 ```
 
 本地素材默认使用 init → COS SDK → complete 直传；旧 multipart `/upload` 只保留兼容诊断。只有 `/upload/complete` 返回唯一且非空的 `url` 时，才可映射为 `/make` 的素材：
@@ -184,7 +183,7 @@ POST /api/rest/mva/out/cloud/queryResult
 }
 ```
 
-不要传模板编码、高光时间段、客户端模板匹配结果或其他未公开字段。Poll 的最终结果使用 `video_url`；需要海报或完整最终素材时调用 `queryResult`。
+不要传模板编码、高光时间段、客户端模板匹配结果或其他未公开字段。Skill 只从 Poll 终态响应读取 `video_url`，不调用其他结果查询接口。
 
 ## 调用模式
 
